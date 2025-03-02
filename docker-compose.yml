@@ -1,0 +1,149 @@
+version: "3.8"
+services:
+  # Spark Master Node
+  spark-master:
+    image: bitnami/spark:3.3.2
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    ports:
+      - "8080:8080"   # Spark master web UI
+      - "7077:7077"   # Spark master service port
+    networks:
+      - app-net
+
+  # Spark Worker Nodes (each co-located with an IPFS node)
+  spark-worker-1:
+    image: bitnami/spark:3.3.2
+    container_name: spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"   # Web UI for worker 1
+    volumes:
+      - data1:/data/chunk1   # Shared chunk1 volume
+      - data2:/data/chunk2   # Shared chunk2 volume
+      - data3:/data/chunk3   # Shared chunk3 volume
+    networks:
+      - app-net
+
+  spark-worker-2:
+    image: bitnami/spark:3.3.2
+    container_name: spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    depends_on:
+      - spark-master
+    ports:
+      - "8082:8081"   # Web UI for worker 2 (mapped to host 8082)
+    volumes:
+      - data1:/data/chunk1
+      - data2:/data/chunk2
+      - data3:/data/chunk3
+    networks:
+      - app-net
+
+  spark-worker-3:
+    image: bitnami/spark:3.3.2
+    container_name: spark-worker-3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    depends_on:
+      - spark-master
+    ports:
+      - "8083:8081"   # Web UI for worker 3 (mapped to host 8083)
+    volumes:
+      - data1:/data/chunk1
+      - data2:/data/chunk2
+      - data3:/data/chunk3
+    networks:
+      - app-net
+
+  # IPFS Node 1
+  ipfs1:
+    build: ./ipfs    # Build custom Dockerfile for IPFS
+    container_name: ipfs1
+    networks:
+      - app-net
+    ports:
+      - "5001:5001"   # IPFS API for node1 (exposed to host for debugging, optional)
+      - "8091:8080"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
+    volumes:
+      - ipfs1_data:/data/ipfs   # Persist IPFS repository data
+
+  # IPFS Node 2
+  ipfs2:
+    build: ./ipfs
+    container_name: ipfs2
+    networks:
+      - app-net
+    ports:
+      - "5002:5001"   # IPFS API node2
+      - "8092:8080"   # IPFS Gateway node2 - changed from 8082
+    volumes:
+      - ipfs2_data:/data/ipfs
+
+  # IPFS Node 3
+  ipfs3:
+    build: ./ipfs
+    container_name: ipfs3
+    networks:
+      - app-net
+    ports:
+      - "5003:5001"   # IPFS API node3
+      - "8093:8080"   # IPFS Gateway node3 - changed from 8083
+    volumes:
+      - ipfs3_data:/data/ipfs
+
+  # FastAPI Driver Server (Spark Driver)
+  fastapi:
+    build: ./fastapi
+    container_name: fastapi-driver
+    depends_on:
+      - spark-master
+      - spark-worker-1
+      - spark-worker-2
+      - spark-worker-3
+      - ipfs1
+      - ipfs2
+      - ipfs3
+    networks:
+      - app-net
+    ports:
+      - "8000:8000"   # FastAPI server port
+    volumes:
+      - data1:/data/chunk1
+      - data2:/data/chunk2
+      - data3:/data/chunk3
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  data1:
+  data2:
+  data3:
+  ipfs1_data:
+  ipfs2_data:
+  ipfs3_data:
