@@ -93,8 +93,7 @@ def add_users():
 def get_users():
     """Retrieves metadata, distributes work to Spark workers, fetches data, and filters users aged over 30"""
     logger.info("GET /users - Starting user data retrieval and processing")
-    
-    global metadata_cid
+   
     if not chunk_cids:
         logger.warning("No user data available - chunk_cids is empty")
         return {"error": "No user data available."}
@@ -112,49 +111,29 @@ def get_users():
         metadata_list.append(metadata_entry)
         logger.info(f"Added metadata for CID {cid}, assigned to node {node_id}")
 
-    # Upload metadata to IPFS - use ipfs1 container name
-    metadata_path = "/data/metadata.json"
-    logger.info(f"Writing metadata to {metadata_path}")
-    with open(metadata_path, "w") as f:
-        json.dump(metadata_list, f)
-
-    ipfs_api_url = "http://ipfs1:5001/api/v0/add"
-    logger.info(f"Uploading metadata to IPFS at {ipfs_api_url}")
-    try:
-        with open(metadata_path, "rb") as f:
-            response = requests.post(ipfs_api_url, files={"file": f})
-            response.raise_for_status()
-            metadata_cid = response.json()["Hash"]
-            logger.info(f"Metadata uploaded to IPFS with CID: {metadata_cid}")
-    except Exception as e:
-        logger.error(f"Error uploading metadata to IPFS: {str(e)}")
-        raise
-
+    # Prepare metadata as JSON string for broadcasting
+    metadata_json = json.dumps(metadata_list)
+   
     # UDF to fetch, process data, and return filtered results
     @udf(returnType=StructType([
         StructField("status", StringType(), False),
         StructField("worker_id", IntegerType(), False),
         StructField("data", StringType(), True)
     ]))
-    def process_ipfs(worker_id):
-        """Worker fetches assigned chunk from IPFS, processes, and returns data"""
+    def process_ipfs(worker_id, metadata_json):
+        """Worker processes assigned chunk from metadata and returns data"""
         import requests, json, os, tempfile
         import pandas as pd
         import logging
-        
+       
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger(f"worker-{worker_id}")
-        
+       
         logger.info(f"Worker {worker_id} starting processing")
         try:
-            # Fetch metadata
-            metadata_url = f"http://ipfs1:8080/ipfs/{metadata_cid}"
-            logger.info(f"Worker {worker_id} fetching metadata from {metadata_url}")
-            metadata_response = requests.get(metadata_url, timeout=10)
-            if metadata_response.status_code != 200:
-                return ("ERROR: Metadata fetch failed", worker_id, None)
-            metadata_list = json.loads(metadata_response.text)
-            
+            # Parse metadata directly from the passed JSON
+            metadata_list = json.loads(metadata_json)
+           
             # Assign chunk based on worker_id
             chunk_metadata = metadata_list[worker_id % len(metadata_list)]
             chunk_cid = chunk_metadata["cid"]
@@ -180,12 +159,15 @@ def get_users():
         except Exception as e:
             return (f"ERROR: {str(e)}", worker_id, None)
 
-    # Create worker DataFrame and apply UDF
+    # Create worker DataFrame and broadcast metadata
     logger.info("Creating worker DataFrame")
     worker_df = spark.createDataFrame([(i,) for i in range(3)], ["worker_id"])
-    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id")))
+   
+    # Use lit function to pass the metadata JSON as a constant
+    from pyspark.sql.functions import lit
+    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id"), lit(metadata_json)))
     results = result_df.collect()
-    
+   
     processed_users = []
     for row in results:
         status, worker_id, data_json = row.result
@@ -195,6 +177,6 @@ def get_users():
                 processed_users.extend(users)
             except json.JSONDecodeError:
                 logger.error(f"Worker {worker_id} returned invalid JSON")
-    
+   
     logger.info(f"Retrieved {len(processed_users)} users over 30")
-    return {"users_over_30": processed_users, "metadata_cid": metadata_cid}
+    return {"users_over_30": processed_users}
