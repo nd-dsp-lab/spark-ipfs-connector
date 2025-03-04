@@ -24,7 +24,6 @@ app = FastAPI()
 
 logger.info("Starting FastAPI application")
 
-# Initialize Spark Session as a standalone cluster client
 logger.info("Initializing Spark Session")
 spark = SparkSession.builder \
     .appName("FastAPISparkDriver") \
@@ -35,7 +34,6 @@ spark = SparkSession.builder \
     .getOrCreate()
 logger.info(f"Spark Session created: {spark.sparkContext.appName}")
 
-# Define user schema
 user_schema = StructType([
     StructField("id", IntegerType(), False),
     StructField("name", StringType(), False),
@@ -43,15 +41,13 @@ user_schema = StructType([
 ])
 logger.info("User schema defined")
 
-# Store metadata CID globally
 chunk_cids = []
-metadata_cid = None
 
 @app.post("/users")
 def add_users():
-    """Splits users into chunks, saves them as Parquet files, and uploads to IPFS"""
     logger.info("POST /users - Starting user data processing")
     
+    # Generate random users
     users = [{"id": i, "name": f"User{i}", "age": 20 + i} for i in range(1, 31)]
     logger.info(f"Generated {len(users)} sample users")
     
@@ -63,6 +59,7 @@ def add_users():
     chunks = np.array_split(df, 3)
     logger.info(f"Split data into {len(chunks)} chunks")
     
+    #Iterate over the chunks
     for idx, chunk in enumerate(chunks, start=1):
         chunk_path = f"/data/chunk{idx}/users_part{idx}.parquet"
         os.makedirs(f"/data/chunk{idx}", exist_ok=True)
@@ -71,7 +68,7 @@ def add_users():
         logger.info(f"Writing chunk {idx} to Parquet file at {chunk_path}")
         pq.write_table(pa.Table.from_pandas(chunk), chunk_path)
 
-        # Upload Parquet file to IPFS - using container name
+        # Upload chunk to IPFS
         ipfs_api_url = f"http://ipfs{idx}:5001/api/v0/add"
         logger.info(f"Uploading chunk {idx} to IPFS node at {ipfs_api_url}")
         
@@ -91,37 +88,18 @@ def add_users():
 
 @app.get("/users")
 def get_users():
-    """Retrieves metadata, distributes work to Spark workers, fetches data, and filters users aged over 30"""
-    logger.info("GET /users - Starting user data retrieval and processing")
-   
     if not chunk_cids:
-        logger.warning("No user data available - chunk_cids is empty")
+        logger.warning("No user data available")
         return {"error": "No user data available."}
 
-    # Prepare metadata - using container names for URLs
-    logger.info("Preparing metadata for IPFS chunks")
-    metadata_list = []
-    for idx, cid in enumerate(chunk_cids):
-        node_id = (idx % 3) + 1  # Round-robin distribution
-        metadata_entry = {
-            "cid": cid,
-            "node_id": node_id,
-            "urls": {f"node{i}": f"http://ipfs{i}:8080/ipfs/{cid}" for i in range(1, 4)}
-        }
-        metadata_list.append(metadata_entry)
-        logger.info(f"Added metadata for CID {cid}, assigned to node {node_id}")
-
-    # Prepare metadata as JSON string for broadcasting
-    metadata_json = json.dumps(metadata_list)
-   
     # UDF to fetch, process data, and return filtered results
     @udf(returnType=StructType([
         StructField("status", StringType(), False),
         StructField("worker_id", IntegerType(), False),
         StructField("data", StringType(), True)
     ]))
-    def process_ipfs(worker_id, metadata_json):
-        """Worker processes assigned chunk from metadata and returns data"""
+    def process_ipfs(worker_id, chunk_cids):
+        """Worker processes assigned chunk from cids and returns data"""
         import requests, json, os, tempfile
         import pandas as pd
         import logging
@@ -131,13 +109,9 @@ def get_users():
        
         logger.info(f"Worker {worker_id} starting processing")
         try:
-            # Parse metadata directly from the passed JSON
-            metadata_list = json.loads(metadata_json)
-           
             # Assign chunk based on worker_id
-            chunk_metadata = metadata_list[worker_id % len(metadata_list)]
-            chunk_cid = chunk_metadata["cid"]
-            urls = chunk_metadata["urls"]
+            chunk_cid = chunk_cids[worker_id % len(chunk_cids)]
+            urls = {f"node{i}": f"http://ipfs{i}:8080/ipfs/{chunk_cid}" for i in range(1, 4)}
             logger.info(f"Worker {worker_id} assigned to chunk {chunk_cid}")
 
             # Fetch chunk data from IPFS
@@ -159,13 +133,13 @@ def get_users():
         except Exception as e:
             return (f"ERROR: {str(e)}", worker_id, None)
 
-    # Create worker DataFrame and broadcast metadata
+    # Create worker DataFrame and broadcast chunk_cids
     logger.info("Creating worker DataFrame")
     worker_df = spark.createDataFrame([(i,) for i in range(3)], ["worker_id"])
    
-    # Use lit function to pass the metadata JSON as a constant
+    # Use lit function to pass the chunk_cids as a constant
     from pyspark.sql.functions import lit
-    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id"), lit(metadata_json)))
+    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id"), lit(chunk_cids)))
     results = result_df.collect()
    
     processed_users = []
