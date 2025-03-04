@@ -59,7 +59,7 @@ def add_users():
     chunks = np.array_split(df, 3)
     logger.info(f"Split data into {len(chunks)} chunks")
     
-    #Iterate over the chunks
+    # Iterate over the chunks, write to Parquet, and upload to IPFS
     for idx, chunk in enumerate(chunks, start=1):
         chunk_path = f"/data/chunk{idx}/users_part{idx}.parquet"
         os.makedirs(f"/data/chunk{idx}", exist_ok=True)
@@ -92,15 +92,19 @@ def get_users():
         logger.warning("No user data available")
         return {"error": "No user data available."}
 
+    # Broadcast the chunk CIDs to all workers
+    broadcast_cids = spark.sparkContext.broadcast(chunk_cids)
+    logger.info("Broadcasted chunk CIDs to workers")
+
     # UDF to fetch, process data, and return filtered results
     @udf(returnType=StructType([
         StructField("status", StringType(), False),
         StructField("worker_id", IntegerType(), False),
         StructField("data", StringType(), True)
     ]))
-    def process_ipfs(worker_id, chunk_cids):
-        """Worker processes assigned chunk from cids and returns data"""
-        import requests, json, os, tempfile
+    def process_ipfs(worker_id):
+        """Worker processes assigned chunk from broadcasted CIDs and returns data"""
+        import requests, os, tempfile
         import pandas as pd
         import logging
        
@@ -109,8 +113,9 @@ def get_users():
        
         logger.info(f"Worker {worker_id} starting processing")
         try:
-            # Assign chunk based on worker_id
-            chunk_cid = chunk_cids[worker_id % len(chunk_cids)]
+            # Get CID from broadcasted list
+            cid_list = broadcast_cids.value
+            chunk_cid = cid_list[worker_id % len(cid_list)]
             urls = {f"node{i}": f"http://ipfs{i}:8080/ipfs/{chunk_cid}" for i in range(1, 4)}
             logger.info(f"Worker {worker_id} assigned to chunk {chunk_cid}")
 
@@ -133,17 +138,17 @@ def get_users():
         except Exception as e:
             return (f"ERROR: {str(e)}", worker_id, None)
 
-    # Create worker DataFrame and broadcast chunk_cids
+    # Create worker DataFrame
     logger.info("Creating worker DataFrame")
     worker_df = spark.createDataFrame([(i,) for i in range(3)], ["worker_id"])
    
-    # Use lit function to pass the chunk_cids as a constant
-    from pyspark.sql.functions import lit
-    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id"), lit(chunk_cids)))
+    # Process using UDF
+    result_df = worker_df.withColumn("result", process_ipfs(col("worker_id")))
     results = result_df.collect()
    
     processed_users = []
     for row in results:
+        print(row.result)
         status, worker_id, data_json = row.result
         if status == "SUCCESS" and data_json:
             try:
