@@ -11,6 +11,8 @@ import concurrent.futures
 import tempfile
 import time
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
+import random
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-logger.info("Starting FastAPI application")
+logger.info("Starting FastAPI application for patient records")
 
 # Environment variables with defaults that prioritize local access
 LOCAL_IPFS_API = os.environ.get("LOCAL_IPFS_API", "http://ipfs:5001")
@@ -40,15 +42,86 @@ PUBLIC_GATEWAYS = [
 # Store metadata about uploaded chunks
 chunk_metadata = []
 
-@app.post("/users")
-def add_users():
-    logger.info("POST /users - Starting user data processing")
+# Sample data for demonstration
+disease_types = ["Hypertension", "Diabetes", "Asthma", "Arthritis", "COPD", "Migraine", "Influenza"]
+hospital_ids = ["H001", "H002", "H003", "H004", "H005"]
+doctor_ids = ["D001", "D002", "D003", "D004", "D005", "D006", "D007", "D008", "D009", "D010"]
+
+def generate_sample_date(start_date, end_date=None):
+    """Generate a sample date between start_date and end_date (or today)"""
+    if end_date is None:
+        end_date = datetime.now()
     
-    # Generate random users
-    users = [{"id": i, "name": f"User{i}", "age": 20 + i} for i in range(1, 31)]
-    logger.info(f"Generated {len(users)} sample users")
+    time_between_dates = end_date - start_date
+    days_between = time_between_dates.days
+    random_days = random.randrange(days_between)
+    return start_date + timedelta(days=random_days)
+
+def generate_diagnosis_report(disease_type):
+    """Generate a simple diagnosis report based on disease type"""
+    reports = {
+        "Hypertension": "Patient shows elevated blood pressure readings. Recommend lifestyle changes and monitoring.",
+        "Diabetes": "Blood glucose levels indicate Type 2 diabetes. Dietary changes and medication advised.",
+        "Asthma": "Pulmonary function tests confirm asthma diagnosis. Inhaler prescribed for management.",
+        "Arthritis": "X-rays show joint inflammation consistent with arthritis. Anti-inflammatory medication recommended.",
+        "COPD": "Decreased lung function detected. Long-term management plan established.",
+        "Migraine": "Recurring severe headaches with associated symptoms. Trigger identification important.",
+        "Influenza": "Positive for influenza virus. Symptomatic treatment and rest advised."
+    }
+    return reports.get(disease_type, "Diagnosis pending additional tests.")
+
+def generate_prescription(disease_type):
+    """Generate a sample prescription based on disease type"""
+    prescriptions = {
+        "Hypertension": "Lisinopril 10mg daily, monitor blood pressure weekly",
+        "Diabetes": "Metformin 500mg twice daily with meals, check blood sugar regularly",
+        "Asthma": "Albuterol inhaler as needed, Fluticasone 220mcg twice daily",
+        "Arthritis": "Ibuprofen 400mg three times daily with food, physical therapy",
+        "COPD": "Tiotropium inhaler daily, pulmonary rehabilitation program",
+        "Migraine": "Sumatriptan 50mg as needed for migraine onset, max 100mg daily",
+        "Influenza": "Oseltamivir 75mg twice daily for 5 days, increased fluid intake"
+    }
+    return prescriptions.get(disease_type, "Prescription pending diagnosis.")
+
+@app.post("/patients")
+def add_patients():
+    logger.info("POST /patients - Starting patient data processing")
     
-    df = pd.DataFrame(users)
+    # Generate random patient records
+    patients = []
+    for i in range(1, 31):
+        # Generate admission date within last 2 years
+        two_years_ago = datetime.now() - timedelta(days=2*365)
+        admission_date = generate_sample_date(two_years_ago)
+        
+        # Generate release date after admission date (or None if still admitted)
+        release_date = None
+        if random.random() > 0.2:  # 80% of patients have been released
+            max_stay = min(60, (datetime.now() - admission_date).days)  # Max 60 days stay
+            if max_stay > 0:
+                stay_days = random.randint(1, max_stay)
+                release_date = admission_date + timedelta(days=stay_days)
+        
+        # Select a random disease type
+        disease_type = random.choice(disease_types)
+        
+        # Create patient record
+        patient = {
+            "patient_id": f"P{i:03d}",
+            "doctor_id": random.choice(doctor_ids),
+            "hospital_id": random.choice(hospital_ids),
+            "age": random.randint(18, 90),
+            "admission_date": admission_date.strftime("%Y-%m-%d"),
+            "release_date": release_date.strftime("%Y-%m-%d") if release_date else None,
+            "disease_type": disease_type,
+            "diagnosis_report": generate_diagnosis_report(disease_type),
+            "prescription": generate_prescription(disease_type)
+        }
+        patients.append(patient)
+    
+    logger.info(f"Generated {len(patients)} sample patient records")
+    
+    df = pd.DataFrame(patients)
     chunk_metadata.clear()
     logger.info("Cleared previous chunk metadata")
 
@@ -62,7 +135,7 @@ def add_users():
     # Iterate over the chunks, write to Parquet, and upload to IPFS
     for idx, chunk in enumerate(chunks, start=1):
         # Save locally first - we'll use this as fallback
-        chunk_path = f"/data/chunks/users_part{idx}.parquet"
+        chunk_path = f"/data/chunks/patients_part{idx}.parquet"
         logger.info(f"Writing chunk {idx} to Parquet file at {chunk_path}")
         pq.write_table(pa.Table.from_pandas(chunk), chunk_path)
 
@@ -96,7 +169,7 @@ def add_users():
 
     logger.info(f"All chunks uploaded to IPFS. Total chunks: {len(chunk_metadata)}")
     return {
-        "message": "Users added to IPFS", 
+        "message": "Patient records added to IPFS", 
         "cids": [item["cid"] for item in chunk_metadata]
     }
 
@@ -174,7 +247,7 @@ def process_chunk(metadata: Dict[str, Any]) -> Dict[str, Any]:
                     "data": None
                 }
         
-        # Filter and return results
+        # Filter and return results - keeping the same age filtering as before
         filtered = df[df['age'] > 30]
         data_json = filtered.to_json(orient='records')
         return {
@@ -193,16 +266,16 @@ def process_chunk(metadata: Dict[str, Any]) -> Dict[str, Any]:
             "data": None
         }
 
-@app.get("/users")
-def get_users():
+@app.get("/patients")
+def get_patients():
     if not chunk_metadata:
-        logger.warning("No user data available")
-        return {"error": "No user data available."}
+        logger.warning("No patient data available")
+        return {"error": "No patient data available."}
 
     logger.info(f"Starting processing of {len(chunk_metadata)} chunks")
     
     # Process chunks in parallel
-    processed_users = []
+    processed_patients = []
     sources = []
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(chunk_metadata)) as executor:
@@ -218,17 +291,17 @@ def get_users():
                 logger.info(f"Worker {worker_id} completed with status: {result['status']}")
                 
                 if result['status'] == "SUCCESS" and result['data']:
-                    processed_users.extend(result['data'])
+                    processed_patients.extend(result['data'])
                     if "source" in result:
                         sources.append(result["source"])
             except Exception as e:
                 logger.error(f"Worker {worker_id} raised exception: {str(e)}")
     
-    logger.info(f"Retrieved {len(processed_users)} users over 30")
+    logger.info(f"Retrieved {len(processed_patients)} patients over 30")
     return {
-        "users_over_30": processed_users,
+        "patients_over_30": processed_patients,
         "sources": sources,
-        "total_records": len(processed_users)
+        "total_records": len(processed_patients)
     }
 
 @app.get("/ping")

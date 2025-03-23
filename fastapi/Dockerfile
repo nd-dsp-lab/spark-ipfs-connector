@@ -13,6 +13,9 @@ RUN pip install --no-cache-dir fastapi uvicorn[standard] pandas pyarrow requests
 # Copy the FastAPI app
 COPY app.py /app.py
 
+# Create directory for data
+RUN mkdir -p /data/chunks
+
 # Expose FastAPI port
 EXPOSE 8000
 
