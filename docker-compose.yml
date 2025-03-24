@@ -25,14 +25,17 @@ services:
       - SPARK_WORKER_MEMORY=1G
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
+    command: >
+      bash -c "pip install pandas requests && 
+               bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     depends_on:
       - spark-master
     ports:
       - "8081:8081"   # Web UI for worker 1
     volumes:
-      - data1:/data/chunk1   # Shared chunk1 volume
-      - data2:/data/chunk2   # Shared chunk2 volume
-      - data3:/data/chunk3   # Shared chunk3 volume
+      - data1:/data/chunk1
+      - data2:/data/chunk2
+      - data3:/data/chunk3
     networks:
       - app-net
 
@@ -46,10 +49,13 @@ services:
       - SPARK_WORKER_MEMORY=1G
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
+    command: >
+      bash -c "pip install pandas requests && 
+               bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     depends_on:
       - spark-master
     ports:
-      - "8082:8081"   # Web UI for worker 2 (mapped to host 8082)
+      - "8082:8081"   # Web UI for worker 2
     volumes:
       - data1:/data/chunk1
       - data2:/data/chunk2
@@ -67,10 +73,13 @@ services:
       - SPARK_WORKER_MEMORY=1G
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
+    command: >
+      bash -c "pip install pandas requests && 
+               bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     depends_on:
       - spark-master
     ports:
-      - "8083:8081"   # Web UI for worker 3 (mapped to host 8083)
+      - "8083:8081"   # Web UI for worker 3
     volumes:
       - data1:/data/chunk1
       - data2:/data/chunk2
