@@ -25,9 +25,10 @@ app = FastAPI()
 logger.info("Starting FastAPI application")
 
 logger.info("Initializing Spark Session")
+spark_master = os.environ.get("SPARK_MASTER", "spark://spark-master:7077")
 spark = SparkSession.builder \
     .appName("FastAPISparkDriver") \
-    .master("spark://spark-master:7077") \
+    .master(spark_master) \
     .config("spark.python.worker.reuse", "true") \
     .config("spark.pyspark.python", "/usr/bin/python3") \
     .config("spark.pyspark.driver.python", "/usr/bin/python3") \
