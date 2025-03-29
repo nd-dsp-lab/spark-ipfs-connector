@@ -25,7 +25,7 @@ ipfs config Addresses.Swarm --json '[
   "/ip6/::/tcp/4002"
 ]'
 
-ipfs bootstrapp /ip4/129.74.152.201/tcp/4002/12D3KooWR3jy9T76xsERNHqNDKSN6f3i82Mzh3bYrgV463xwj42R
+ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWQ9xZ1NzWFW2bTgv9qyMFtQx9PFKhMsB5vS8JoXV5UC33
 
 ipfs config Routing.Type none
 

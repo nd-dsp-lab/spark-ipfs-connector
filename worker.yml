@@ -2,7 +2,7 @@ services:
 
   spark-worker:
     image: bitnami/spark:3.3.2
-    container_name: spark-worker-1
+    container_name: spark-worker
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://129.74.152.201:7077
@@ -12,7 +12,7 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
     command: >
       bash -c "pip install pandas requests && 
-               bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
+               bin/spark-class org.apache.spark.deploy.worker.Worker spark://129.74.152.201:7077"
     network_mode: host
 
   ipfs:
