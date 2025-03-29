@@ -1,0 +1,35 @@
+services:
+
+  spark-worker:
+    image: bitnami/spark:3.3.2
+    container_name: spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://129.74.152.201:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+    command: >
+      bash -c "pip install pandas requests && 
+               bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
+    network_mode: host
+
+  ipfs:
+    build: ./ipfs    # Build custom Dockerfile for IPFS
+    networks:
+      - app-net
+    container_name: ipfs-private
+    ports:
+      - "5002:5002"   # IPFS API for node1 (exposed to host for debugging, optional)
+      - "8083:8083"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
+      - "4002:4002"   # IPFS Swarm port for node1 (exposed to host for peer-to-peer communication)
+    volumes:
+      - ipfs_data:/data/ipfs   # Persist IPFS repository data
+
+networks:
+  app-net:
+    driver: bridge
+volumes:
+  fastapi-temp:
+  ipfs_data:
