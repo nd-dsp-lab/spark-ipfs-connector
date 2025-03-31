@@ -32,7 +32,7 @@ ipfs config --json Addresses.Announce '[
   "/ip4/'"$PUBLIC_IP"'/tcp/4002"
 ]'
 
-ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWCqCXg8LbsJpaQTGAY4QmuoUFw5EiuSiEQyfNeZxyspL1
+ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWQwXefrXoPE8Pt7m4zBHibCyfdhCj7xzqqfXLHvXHk3QD
 
 # enable DHT routing
 ipfs config Routing.Type dht
