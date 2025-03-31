@@ -25,7 +25,14 @@ ipfs config Addresses.Swarm --json '[
   "/ip6/::/tcp/4002"
 ]'
 
-ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWQ9xZ1NzWFW2bTgv9qyMFtQx9PFKhMsB5vS8JoXV5UC33
+# Announce the public IP address
+PUBLIC_IP=$(wget -qO- https://api.ipify.org)
+echo "Public IP address: $PUBLIC_IP"
+ipfs config --json Addresses.Announce '[
+  "/ip4/'"$PUBLIC_IP"'/tcp/4002"
+]'
+
+ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWCqCXg8LbsJpaQTGAY4QmuoUFw5EiuSiEQyfNeZxyspL1
 
 ipfs config Routing.Type none
 
