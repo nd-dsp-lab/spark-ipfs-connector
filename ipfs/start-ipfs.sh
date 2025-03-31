@@ -32,19 +32,19 @@ ipfs config --json Addresses.Announce '[
   "/ip4/'"$PUBLIC_IP"'/tcp/4002"
 ]'
 
-ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/ipfs/12D3KooWQnbihHiJzQKJdycentTdewEjcBzxZ5WcVdAwDhgyG3a3
+ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/p2p/12D3KooWM64W2CyJw9zzwTiyGGbbaczSjrvQRUenaeb4BXdx2s9P
 
 # enable DHT routing
-ipfs config Routing.Type dht
+ipfs config Routing.Type dhtclient
 
 # Disable AutoTLS to avoid conflicts with private networking
 ipfs config --json AutoTLS.Enabled false
 
 # Disable WebSocket transport for private networks
-ipfs config --json Swarm.Transports.Network.Websocket false
+ipfs config --json Swarm.Transports.Network.Websocket true
 
 # Disable TCP multiplexing if necessary
-export LIBP2P_TCP_MUX=false
+export LIBP2P_TCP_MUX=true
 
 # Start the daemon
 exec ipfs daemon --migrate=true
