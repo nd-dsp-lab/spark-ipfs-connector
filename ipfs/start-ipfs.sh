@@ -13,6 +13,8 @@ else
   exit 1
 fi
 
+ipfs bootstrap rm --all
+
 # Configure IPFS to listen on all interfaces
 ipfs config Addresses.API /ip4/0.0.0.0/tcp/5002
 ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8081
@@ -23,7 +25,20 @@ ipfs config Addresses.Swarm --json '[
   "/ip6/::/tcp/4002"
 ]'
 
-ipfs config Routing.Type none
+# Announce the public IP addresss
+ipfs config --json Addresses.Announce "[\"/ip4/129.74.152.201/tcp/4002\"]"
+
+# enable DHT routing
+ipfs config Routing.Type dhtclient
+
+# Disable AutoTLS to avoid conflicts with private networking
+ipfs config --json AutoTLS.Enabled false
+
+# Disable WebSocket transport for private networks
+ipfs config --json Swarm.Transports.Network.Websocket true
+
+# Disable TCP multiplexing if necessary
+export LIBP2P_TCP_MUX=true
 
 # Start the daemon
 exec ipfs daemon --migrate=true
