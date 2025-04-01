@@ -36,10 +36,18 @@ services:
     container_name: ipfs-private
     ports:
       - "5002:5002"   # IPFS API for node1 (exposed to host for debugging, optional)
-      - "8082:8081"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
+      - "8082:8082"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
+      # - "8083:8083"   # IPFS Websocket
       - "4002:4002"   # IPFS Swarm port for node1 (exposed to host for peer-to-peer communication)
     volumes:
       - ipfs_data:/data/ipfs   # Persist IPFS repository data
+    # Increase resource limits to improve performance
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
 networks:
   app-net:
