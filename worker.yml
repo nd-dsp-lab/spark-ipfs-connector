@@ -22,7 +22,7 @@ services:
     container_name: ipfs-private
     ports:
       - "5002:5002"   # IPFS API for node1 (exposed to host for debugging, optional)
-      - "8083:8083"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
+      - "8082:8082"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
       - "4002:4002"   # IPFS Swarm port for node1 (exposed to host for peer-to-peer communication)
     volumes:
       - ipfs_data:/data/ipfs   # Persist IPFS repository data
