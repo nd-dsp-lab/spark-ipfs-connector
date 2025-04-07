@@ -1,33 +1,22 @@
 # should be run on machine with public ip
 
 services:
-  # Spark Master Node
-  spark-master:
-    image: bitnami/spark:3.3.2
-    container_name: spark-master
-    network_mode: host
-    environment:
-      - SPARK_MODE=master
-      - SPARK_MASTER_HOST=129.74.152.201
-      - SPARK_PUBLIC_DNS=129.74.152.201
-      - SPARK_LOCAL_IP=129.74.152.201
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-
   # FastAPI Driver Server (Spark Driver)
   fastapi:
     build: ./fastapi
     container_name: fastapi-driver
-    depends_on:
-      - spark-master
+    network_mode: host
     environment:
       - SPARK_MASTER=spark://129.74.152.201:7077
-    ports:
-      - "8000:8000" # FastAPI server port
+    # ports:
+    #   - "8000:8000" # FastAPI server port
+    #   - "10025:10025" # Spark Blockmanager Port
+    #   - "10026:10026" # Spark Driver-Blockmanager Port
+    #   - "10027:10027" # Spark Driver-Executor Port
     volumes:
-      - fastapi-temp:/data/chunk1
-    networks:
-      - app-net
+      - fastapi-temp:/data/chunks
+    # networks:
+    #   - app-net
 
   ipfs:
     build: ./ipfs    # Build custom Dockerfile for IPFS

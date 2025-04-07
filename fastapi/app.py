@@ -29,6 +29,10 @@ spark_master = os.environ.get("SPARK_MASTER", "spark://spark-master:7077")
 spark = SparkSession.builder \
     .appName("FastAPISparkDriver") \
     .master(spark_master) \
+    .config("spark.blockManager.port", "10025") \
+    .config("spark.driver.blockManager.port", "10026") \
+    .config("spark.driver.host", "129.74.152.201") \
+    .config("spark.driver.port", "10027") \
     .config("spark.python.worker.reuse", "true") \
     .config("spark.pyspark.python", "/usr/bin/python3") \
     .config("spark.pyspark.driver.python", "/usr/bin/python3") \
@@ -62,15 +66,15 @@ def add_users():
     
     # Iterate over the chunks, write to Parquet, and upload to IPFS
     for idx, chunk in enumerate(chunks, start=1):
-        chunk_path = f"/data/chunk{idx}/users_part{idx}.parquet"
-        os.makedirs(f"/data/chunk{idx}", exist_ok=True)
+        chunk_path = f"/data/chunks/{idx}/users_part{idx}.parquet"
+        os.makedirs(f"/data/chunks/{idx}", exist_ok=True)
         logger.info(f"Created directory for chunk {idx}")
         
         logger.info(f"Writing chunk {idx} to Parquet file at {chunk_path}")
         pq.write_table(pa.Table.from_pandas(chunk), chunk_path)
 
         # Upload chunk to IPFS
-        ipfs_api_url = f"http://ipfs{idx}:5001/api/v0/add"
+        ipfs_api_url = f"http://localhost:5002/api/v0/add"
         logger.info(f"Uploading chunk {idx} to IPFS node at {ipfs_api_url}")
         
         try:
@@ -117,7 +121,7 @@ def get_users():
             # Get CID from broadcasted list
             cid_list = broadcast_cids.value
             chunk_cid = cid_list[worker_id % len(cid_list)]
-            urls = {f"node{i}": f"http://ipfs{i}:8080/ipfs/{chunk_cid}" for i in range(1, 4)}
+            urls = {f"node{i}": f"http://localhost:8082/ipfs/{chunk_cid}" for i in range(1, 4)}
             logger.info(f"Worker {worker_id} assigned to chunk {chunk_cid}")
 
             # Fetch chunk data from IPFS
