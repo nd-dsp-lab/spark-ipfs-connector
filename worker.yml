@@ -11,7 +11,7 @@ services:
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
       - SPARK_RPC_ENCRYPTION_ENABLED=no
     command: >
-      bash -c "pip install pandas requests && 
+      bash -c "pip install pandas requests pyarrow && 
                bin/spark-class org.apache.spark.deploy.worker.Worker spark://129.74.152.201:7077"
     network_mode: host
 
