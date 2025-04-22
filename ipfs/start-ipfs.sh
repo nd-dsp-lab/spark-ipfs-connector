@@ -10,7 +10,7 @@ if [ ! -f /data/ipfs/config ]; then
     # Reset bootstrap nodes to defaults
     ipfs bootstrap rm --all
     ipfs bootstrap add --default
-    ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/p2p/12D3KooWArcnmCkBTJqVu1iu6uThDF8vjJyeNn54RDmS61WUQVhy
+    ipfs bootstrap add /ip4/129.74.152.201/tcp/4002/p2p/12D3KooWPSCs7XXxNkEoQTR2NLJr5gzVbxTsbSAKBGQ2oyBpCFLR
 fi
 
 # Configure IPFS to listen on all interfaces
