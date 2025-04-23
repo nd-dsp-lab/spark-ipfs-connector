@@ -1,4 +1,4 @@
-FROM ipfs/go-ipfs:latest
+FROM ipfs/kubo:latest
 
 # Copy a startup script
 COPY start-ipfs.sh /usr/local/bin/
