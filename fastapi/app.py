@@ -78,7 +78,7 @@ def add_users():
         pq.write_table(pa.Table.from_pandas(chunk), chunk_path)
 
         # Upload chunk to IPFS
-        ipfs_api_url = f"http://localhost:5002/api/v0/add"
+        ipfs_api_url = f"http://localhost:5001/api/v0/add"
         logger.info(f"Uploading chunk {idx} to IPFS node at {ipfs_api_url}")
 
         try:
