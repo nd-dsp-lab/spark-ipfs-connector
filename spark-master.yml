@@ -1,7 +1,7 @@
 services:
   # Spark Master Node
   spark-master:
-    image: apache/spark:3.5.4
+    image: bitnami/spark:3.5.4
     container_name: spark-master
     network_mode: host
     environment:
