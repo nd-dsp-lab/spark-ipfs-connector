@@ -19,24 +19,16 @@ services:
     #   - app-net
 
   ipfs:
-    build: ./ipfs    # Build custom Dockerfile for IPFS
+    image: ipfs/kubo:latest
     networks:
       - app-net
-    container_name: ipfs-private
+    container_name: ipfs-test
     ports:
-      - "5002:5002"   # IPFS API for node1 (exposed to host for debugging, optional)
-      - "8082:8082"   # IPFS Gateway for node1 (exposed to host, optional) - changed from 8081
-      # - "8083:8083"   # IPFS Websocket
-      - "4002:4002"   # IPFS Swarm port for node1 (exposed to host for peer-to-peer communication)
+      - "4001:4001"
+      - "5001:5001"
+      - "8082:8080" # Or another available port
     volumes:
-      - ipfs_data:/data/ipfs   # Persist IPFS repository data
-    # Increase resource limits to improve performance
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 256M
+      - ./data/ipfs:/data/ipfs
 
 networks:
   app-net:
